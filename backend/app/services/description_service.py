@@ -46,10 +46,9 @@ def generate_scene_descriptions(
             })
         return fallback_descriptions
 
-    import google.generativeai as genai
+    from google import genai
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(settings.GEMINI_MODEL)
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     prompt_path = Path(__file__).resolve().parent.parent / "prompts" / "description_generation.txt"
     system_prompt = prompt_path.read_text(encoding="utf-8") if prompt_path.exists() else "Write concise audio description sentences."
@@ -77,11 +76,14 @@ Output valid JSON only matching the schema:
 }}
 """
     try:
-        response = model.generate_content([system_prompt, user_query])
+        response = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=[system_prompt, user_query]
+        )
         cleaned_json = clean_json_text(response.text)
         data = json.loads(cleaned_json)
         descriptions = data.get("descriptions", [])
-        
+
         results = []
         for d in descriptions:
             results.append({
@@ -108,4 +110,3 @@ Output valid JSON only matching the schema:
                 "status": "PROPOSED"
             })
         return fallback
-
