@@ -65,3 +65,11 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
+# Local scratch & IDE
+.claude/
+backend/scratch/
+backend/elephant-goldfish-model/
+
+# Generated media outputs & build cache
+brag-output-*/
+
