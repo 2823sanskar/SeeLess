@@ -14,7 +14,7 @@ class Settings(BaseSettings):
 
     # Visual Intelligence & Description Generation (Gemini)
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # Gnani AI Audio Services (Exclusive AI STT & TTS)
     GNANI_API_KEY: str = ""
