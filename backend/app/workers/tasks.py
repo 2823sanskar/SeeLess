@@ -29,10 +29,10 @@ from app.models import (
 )
 from app.services.audio_analysis_service import transcribe_audio
 from app.services.audio_assembly_service import (
-    assemble_audio,
     create_accessible_video,
     create_separate_description_track,
 )
+from app.services.audio_mixing_service import mix_professional_audio
 from app.services.context_service import ContextService
 from app.services.description_service import generate_scene_descriptions
 from app.services.extraction_service import extract_audio, extract_frames, validate_video
@@ -41,6 +41,7 @@ from app.services.scene_service import detect_scenes
 from app.services.scheduler_service import schedule_narration_clips, validate_clip_placement
 from app.services.tts_service import generate_narration_audio, validate_narration_clip
 from app.services.visual_analysis_service import analyze_visuals_for_video
+from app.config import settings
 from app.utils.file_utils import init_video_storage
 from app.utils.logging_utils import logger
 try:
@@ -258,11 +259,18 @@ def execute_video_pipeline(video_id: str) -> None:
 
         db.commit()
 
-        # ── Stage 8: Audio assembly & final render ────────────────────────────
-        _update_job(db, job, "RUNNING", "Assembling accessible audio & rendering video", 92)
+        # ── Stage 8: Professional Audio Mixing & Final Render ──────────────────
+        _update_job(db, job, "RUNNING", "Mixing professional audio with loudness normalization & ducking", 92)
 
         mixed_path: str = str(storage["output"] / "mixed_soundtrack.aac")
-        assemble_audio(audio_path, valid_clips, mixed_path, total_duration=video.duration or 600.0)
+        mix_professional_audio(
+            original_audio_path=audio_path,
+            narration_clips=valid_clips,
+            output_audio_path=mixed_path,
+            total_duration=video.duration or 600.0,
+            enable_ducking=settings.DUCKING_ENABLED,
+            ducking_gain_db=settings.DUCKING_GAIN_DB,
+        )
 
         ad_track_path: str = str(storage["output"] / "audio_description.wav")
         create_separate_description_track(valid_clips, ad_track_path, total_duration=video.duration or 600.0)
