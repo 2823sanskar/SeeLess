@@ -36,6 +36,41 @@ class Settings(BaseSettings):
     GNANI_STT_CIRCUIT_BREAKER_TIMEOUT: int = 30
     GNANI_DNS_TIMEOUT: float = 5.0
 
+    # Phase 3: Narration Intelligence
+    NARRATION_PRIORITIZATION_ENABLED: bool = True
+    NARRATION_MAX_DESCRIPTIONS: int = 50
+    NARRATION_DEDUP_WINDOW_SECONDS: float = 3.0
+    NARRATION_MIN_WORDS: int = 3
+    NARRATION_MAX_WORDS: int = 25
+    NARRATION_DEMOTION_ENABLED: bool = True
+    NARRATION_FILTER_SPECULATIVE: bool = True
+
+    # Phase 3: Dialogue Protection
+    DIALOGUE_SAFETY_PADDING_MS: float = 200.0
+    DIALOGUE_MAX_RESCHEDULE_ATTEMPTS: int = 3
+    DIALOGUE_SAFETY_BUFFER_SECONDS: float = 0.05
+
+    # Phase 3: Scheduler Enhancements
+    SCHEDULER_PRIORITY_SORTING: bool = True
+    SCHEDULER_AUTO_SHORTEN: bool = True
+    SCHEDULER_AUTO_OMIT: bool = True
+    SCHEDULER_MAX_DELAY_SECONDS: float = 15.0
+    SCHEDULER_MIN_GAP_SECONDS: float = 0.3
+    SCHEDULER_TTS_DURATION_VALIDATION: bool = True
+
+    # Phase 4: Professional Audio Experience
+    AUDIO_NORMALIZATION_ENABLED: bool = True
+    AUDIO_TARGET_LUFS: float = -24.0
+    AUDIO_TARGET_TRUE_PEAK_DB: float = -2.0
+    AUDIO_LRA_LIMIT: float = 11.0
+    AUDIO_SAMPLE_RATE: int = 44100
+    AUDIO_CHANNELS: int = 2
+    DUCKING_ENABLED: bool = False
+    DUCKING_GAIN_DB: float = -12.0
+    DUCKING_RATIO: float = 20.0
+    DUCKING_ATTACK_MS: float = 5.0
+    DUCKING_RELEASE_MS: float = 250.0
+
 settings = Settings()
 
 # Resolve absolute path for storage relative to repo root
