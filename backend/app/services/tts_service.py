@@ -1,4 +1,6 @@
 import os
+import random
+import time
 import requests
 from pathlib import Path
 from typing import Dict, Any, Optional
@@ -8,6 +10,39 @@ from app.services.extraction_service import run_cmd
 
 class GnaniTTSError(Exception):
     pass
+
+class RetryPolicy:
+    """Exponential backoff with jitter for external API calls."""
+
+    def __init__(
+        self,
+        max_retries: int = 3,
+        backoff_base: float = 2.0,
+        jitter: float = 0.5
+    ):
+        self.max_retries = max_retries
+        self.backoff_base = backoff_base
+        self.jitter = jitter
+
+    def get_delay(self, attempt: int) -> float:
+        """Calculate delay with exponential backoff and jitter."""
+        delay = self.backoff_base * (2 ** attempt)
+        jitter_range = delay * self.jitter
+        return delay + random.uniform(-jitter_range, jitter_range)
+
+    def should_retry(self, attempt: int, exception: Exception) -> bool:
+        """Determine if request should be retried."""
+        if attempt >= self.max_retries:
+            return False
+        # Retry on network errors, timeouts, and 429/5xx responses
+        if isinstance(exception, (requests.Timeout, requests.ConnectionError)):
+            return True
+        if isinstance(exception, GnaniTTSError):
+            # Check if it's a 429 or 5xx error
+            error_str = str(exception)
+            if "429" in error_str or any(f"{code}" in error_str for code in ["500", "502", "503", "504"]):
+                return True
+        return False
 
 def get_audio_duration(audio_path: str) -> float:
     cmd = [
@@ -37,6 +72,7 @@ def generate_narration_audio_gnani(
 ) -> Dict[str, Any]:
     """
     Synthesizes narration text into speech exclusively using Gnani AI TTS.
+    Implements exponential backoff with jitter for rate limit handling.
     """
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     voice = voice_id or settings.GNANI_VOICE_ID
@@ -79,36 +115,55 @@ def generate_narration_audio_gnani(
         }
     }
 
-    try:
-        logger.info(f"Sending narration to Gnani TTS for voice '{voice}'...")
-        response = requests.post(
-            settings.GNANI_TTS_ENDPOINT,
-            json=payload,
-            headers=headers,
-            timeout=60
-        )
+    retry_policy = RetryPolicy(
+        max_retries=settings.GNANI_TTS_MAX_RETRIES,
+        backoff_base=settings.GNANI_TTS_BACKOFF_BASE,
+        jitter=settings.GNANI_TTS_JITTER
+    )
 
-        if response.status_code != 200:
-            logger.error(f"Gnani TTS API error [{response.status_code}]: {response.text}")
-            raise GnaniTTSError(f"Gnani TTS request failed with code {response.status_code}: {response.text}")
+    attempt = 0
+    while True:
+        try:
+            logger.info(f"Sending narration to Gnani TTS for voice '{voice}' (attempt {attempt + 1})...")
+            response = requests.post(
+                settings.GNANI_TTS_ENDPOINT,
+                json=payload,
+                headers=headers,
+                timeout=60
+            )
 
-        # Save audio content
-        with open(output_path, "wb") as f:
-            f.write(response.content)
+            if response.status_code != 200:
+                error_msg = f"Gnani TTS API error [{response.status_code}]: {response.text}"
+                logger.error(error_msg)
+                raise GnaniTTSError(error_msg)
 
-        dur = get_audio_duration(output_path)
-        logger.info(f"Gnani TTS clip generated successfully. Duration: {dur}s")
+            # Save audio content
+            with open(output_path, "wb") as f:
+                f.write(response.content)
 
-        return {
-            "file_path": output_path,
-            "duration": round(dur, 2),
-            "text": text,
-            "provider": "gnani_ai"
-        }
+            dur = get_audio_duration(output_path)
+            logger.info(f"Gnani TTS clip generated successfully. Duration: {dur}s")
 
-    except Exception as e:
-        logger.error(f"Gnani TTS generation error: {e}")
-        raise GnaniTTSError(str(e))
+            return {
+                "file_path": output_path,
+                "duration": round(dur, 2),
+                "text": text,
+                "provider": "gnani_ai"
+            }
+
+        except Exception as e:
+            logger.warning(f"Gnani TTS generation error (attempt {attempt + 1}): {e}")
+
+            if retry_policy.should_retry(attempt, e):
+                delay = retry_policy.get_delay(attempt)
+                logger.info(f"Retrying in {delay:.2f}s...")
+                time.sleep(delay)
+                attempt += 1
+                continue
+
+            # Max retries exhausted or non-retryable error
+            logger.error(f"Gnani TTS generation failed after {attempt + 1} attempts: {e}")
+            raise GnaniTTSError(str(e))
 
 def generate_narration_audio(
     text: str,
