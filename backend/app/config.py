@@ -25,6 +25,17 @@ class Settings(BaseSettings):
     GNANI_VOICE_ID: str = "Nalini"
     GNANI_LANGUAGE_CODE: str = "en-IN"
 
+    # Gnani TTS Resilience
+    GNANI_TTS_MAX_RETRIES: int = 3
+    GNANI_TTS_BACKOFF_BASE: float = 2.0
+    GNANI_TTS_JITTER: float = 0.5
+
+    # Gnani STT Resilience
+    GNANI_STT_MAX_RETRIES: int = 3
+    GNANI_STT_CIRCUIT_BREAKER_THRESHOLD: int = 5
+    GNANI_STT_CIRCUIT_BREAKER_TIMEOUT: int = 30
+    GNANI_DNS_TIMEOUT: float = 5.0
+
 settings = Settings()
 
 # Resolve absolute path for storage relative to repo root
