@@ -23,7 +23,7 @@ def analyze_scene_frames_gemini(
     context_service: Optional[ContextService] = None
 ) -> List[Dict[str, Any]]:
     """
-    Analyzes frames for a scene using Gemini model.
+    Analyzes frames for a scene using Gemini model (google.genai SDK).
     """
     if not settings.GEMINI_API_KEY:
         logger.warning("GEMINI_API_KEY is not configured. Visual analysis with Gemini will return fallback visual events.")
@@ -37,18 +37,17 @@ def analyze_scene_frames_gemini(
             "confidence": 0.8
         }]
 
-    import google.generativeai as genai
+    from google import genai
     from PIL import Image
 
-    genai.configure(api_key=settings.GEMINI_API_KEY)
-    model = genai.GenerativeModel(settings.GEMINI_MODEL)
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
     # Filter frames belonging to scene
     scene_frames = [
-        f for f in frames 
+        f for f in frames
         if scene["start_time"] <= f["timestamp"] <= scene["end_time"]
     ]
-    
+
     # Cap to max 8 frames per scene for rate/token efficiency
     if len(scene_frames) > 8:
         step = len(scene_frames) // 8
@@ -98,11 +97,14 @@ Output JSON only adhering to the format:
 """
     try:
         content_parts = [system_prompt, user_query] + images
-        response = model.generate_content(content_parts)
+        response = client.models.generate_content(
+            model=settings.GEMINI_MODEL,
+            contents=content_parts
+        )
         cleaned_json = clean_json_text(response.text)
         data = json.loads(cleaned_json)
         events = data.get("events", [])
-        
+
         # Update context if characters mentioned
         if context_service:
             for ev in events:
@@ -140,4 +142,3 @@ def analyze_visuals_for_video(
 
     all_events.sort(key=lambda x: x["start"])
     return all_events
-
