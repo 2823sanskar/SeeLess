@@ -43,7 +43,12 @@ from app.services.tts_service import generate_narration_audio, validate_narratio
 from app.services.visual_analysis_service import analyze_visuals_for_video
 from app.utils.file_utils import init_video_storage
 from app.utils.logging_utils import logger
-from app.workers.celery_app import celery_app
+try:
+    from app.workers.celery_app import celery_app
+    USING_CELERY = True
+except ImportError:
+    celery_app = None
+    USING_CELERY = False
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +307,13 @@ def execute_video_pipeline(video_id: str) -> None:
 # Celery entry point
 # ---------------------------------------------------------------------------
 
-@celery_app.task(name="app.workers.tasks.process_video_task")
-def process_video_task(video_id: str) -> None:
-    logger.info(f"Celery task received for video '{video_id}'.")
-    execute_video_pipeline(video_id)
+if USING_CELERY:
+    @celery_app.task(name="app.workers.tasks.process_video_task")
+    def process_video_task(video_id: str) -> None:
+        logger.info(f"Celery task received for video '{video_id}'.")
+        execute_video_pipeline(video_id)
+else:
+    def process_video_task(video_id: str) -> None:
+        """Fallback when Celery is unavailable; runs pipeline directly."""
+        logger.info(f"Processing video '{video_id}' without Celery.")
+        execute_video_pipeline(video_id)

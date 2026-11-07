@@ -98,15 +98,18 @@ async def start_processing(
         job = latest_job
 
     celery_dispatched = False
-    try:
-        from app.workers.tasks import process_video_task  # lazy import avoids circular deps
+    from app.workers.tasks import process_video_task, USING_CELERY, execute_video_pipeline
+
+    if USING_CELERY:
+        # Dispatch to Celery if available
         process_video_task.delay(video_id)
         celery_dispatched = True
         logger.info(f"Video {video_id} dispatched to Celery.")
-    except Exception as exc:
-        logger.warning(f"Celery unavailable ({exc}). Falling back to BackgroundTasks.")
-        from app.workers.tasks import execute_video_pipeline
+    else:
+        # Fallback to FastAPI BackgroundTasks
         background_tasks.add_task(execute_video_pipeline, video_id)
+        celery_dispatched = False
+        logger.info(f"Celery unavailable; processing video {video_id} via BackgroundTasks.")
 
     return {
         "video_id": video_id,
