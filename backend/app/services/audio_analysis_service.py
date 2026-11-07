@@ -1,6 +1,8 @@
 import os
 import json
 import subprocess
+import time
+import random
 import requests
 from pathlib import Path
 from typing import List, Dict, Any, Optional
@@ -9,6 +11,49 @@ from app.utils.logging_utils import logger
 
 class GnaniSTTError(Exception):
     pass
+
+class CircuitBreaker:
+    """Circuit breaker for external API calls."""
+
+    def __init__(
+        self,
+        failure_threshold: int = 5,
+        recovery_timeout: int = 30
+    ):
+        self.failure_threshold = failure_threshold
+        self.recovery_timeout = recovery_timeout
+        self.failure_count = 0
+        self.last_failure_time: Optional[float] = None
+        self.state = "closed"  # closed, open, half-open
+
+    def record_success(self):
+        self.failure_count = 0
+        self.state = "closed"
+
+    def record_failure(self):
+        self.failure_count += 1
+        self.last_failure_time = time.time()
+        if self.failure_count >= self.failure_threshold:
+            self.state = "open"
+            logger.warning(f"Circuit breaker opened after {self.failure_count} consecutive failures")
+
+    def can_execute(self) -> bool:
+        if self.state == "closed":
+            return True
+        if self.state == "open":
+            if self.last_failure_time and (time.time() - self.last_failure_time) >= self.recovery_timeout:
+                self.state = "half-open"
+                logger.info("Circuit breaker entering half-open state")
+                return True
+            return False
+        # half-open: allow one request to test
+        return True
+
+# Global circuit breaker instance for Gnani STT
+gnani_stt_circuit_breaker = CircuitBreaker(
+    failure_threshold=settings.GNANI_STT_CIRCUIT_BREAKER_THRESHOLD,
+    recovery_timeout=settings.GNANI_STT_CIRCUIT_BREAKER_TIMEOUT
+)
 
 def get_audio_duration(audio_path: str) -> float:
     cmd = [
@@ -33,6 +78,10 @@ def _call_gnani_stt_single(audio_path: str) -> Dict[str, Any]:
             "status": "NO_API_KEY"
         }
 
+    # Check circuit breaker
+    if not gnani_stt_circuit_breaker.can_execute():
+        raise GnaniSTTError("Circuit breaker open: Gnani STT unavailable")
+
     headers = {
         "X-API-Key-ID": settings.GNANI_API_KEY
     }
@@ -42,43 +91,63 @@ def _call_gnani_stt_single(audio_path: str) -> Dict[str, Any]:
         "format": "transcribe"
     }
 
+    # Configure DNS timeout via requests session
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(
+        max_retries=0  # We handle retries manually
+    )
+    session.mount("https://", adapter)
+    session.mount("http://", adapter)
+
     try:
         with open(audio_path, "rb") as f:
             files = {
                 "audio_file": (Path(audio_path).name, f, "audio/wav")
             }
             logger.info(f"Sending audio to Gnani STT ({settings.GNANI_STT_ENDPOINT})...")
-            response = requests.post(
+            response = session.post(
                 settings.GNANI_STT_ENDPOINT,
                 headers=headers,
                 data=data,
                 files=files,
-                timeout=60
+                timeout=(settings.GNANI_DNS_TIMEOUT, 60)  # (connect, read) timeout
             )
 
         if response.status_code != 200:
             logger.error(f"Gnani STT API error [{response.status_code}]: {response.text}")
+            gnani_stt_circuit_breaker.record_failure()
             raise GnaniSTTError(f"Gnani STT request failed with code {response.status_code}: {response.text}")
 
         res_json = response.json()
         logger.info(f"Gnani STT response received: {res_json.get('request_id', 'ok')}")
+        gnani_stt_circuit_breaker.record_success()
         return res_json
 
+    except requests.exceptions.Timeout as e:
+        logger.error(f"Gnani STT timeout: {e}")
+        gnani_stt_circuit_breaker.record_failure()
+        raise GnaniSTTError(f"Gnani STT timeout: {e}")
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"Gnani STT connection error: {e}")
+        gnani_stt_circuit_breaker.record_failure()
+        raise GnaniSTTError(f"Gnani STT connection error: {e}")
     except Exception as e:
         logger.error(f"Gnani STT call failed: {e}")
+        gnani_stt_circuit_breaker.record_failure()
         raise GnaniSTTError(str(e))
 
 def transcribe_audio_gnani_api(audio_path: str) -> Dict[str, Any]:
     """
     Transcribes audio using Gnani AI STT. If the audio is longer than 24 seconds,
     it automatically splits it into chunks (Gnani STT max limit is 30s) and joins them.
+    Implements retry logic with exponential backoff and circuit breaker.
     """
     duration = get_audio_duration(audio_path)
     logger.info(f"Audio duration for STT: {duration:.2f}s")
 
     # If within 24 seconds, single call is fine
     if duration <= 24.0 or duration <= 0:
-        return _call_gnani_stt_single(audio_path)
+        return _call_gnani_stt_single_with_retry(audio_path)
 
     chunk_size = 24.0
     transcripts = []
@@ -108,7 +177,7 @@ def transcribe_audio_gnani_api(audio_path: str) -> Dict[str, Any]:
 
         try:
             subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
-            res = _call_gnani_stt_single(str(chunk_file))
+            res = _call_gnani_stt_single_with_retry(str(chunk_file))
             t_text = res.get("transcript", "").strip()
             if t_text:
                 transcripts.append(t_text)
@@ -159,6 +228,35 @@ def transcribe_audio_gnani_api(audio_path: str) -> Dict[str, Any]:
         "segments": combined_segments,
         "words": combined_words
     }
+
+def _call_gnani_stt_single_with_retry(audio_path: str) -> Dict[str, Any]:
+    """Wrapper with retry logic for individual STT calls."""
+    max_retries = settings.GNANI_STT_MAX_RETRIES
+    base_delay = 1.0
+
+    for attempt in range(max_retries + 1):
+        try:
+            return _call_gnani_stt_single(audio_path)
+        except GnaniSTTError as e:
+            error_str = str(e)
+            # Only retry on 429, 5xx, timeout, or connection errors
+            is_retryable = (
+                "429" in error_str or
+                any(f"{code}" in error_str for code in ["500", "502", "503", "504"]) or
+                "timeout" in error_str.lower() or
+                "connection" in error_str.lower()
+            )
+
+            if not is_retryable or attempt >= max_retries:
+                logger.error(f"STT call failed after {attempt + 1} attempts (non-retryable or max retries): {e}")
+                raise
+
+            delay = base_delay * (2 ** attempt) + random.uniform(0, 0.5)
+            logger.warning(f"STT attempt {attempt + 1} failed, retrying in {delay:.2f}s: {e}")
+            time.sleep(delay)
+
+    # Should not reach here
+    raise GnaniSTTError("Max retries exceeded")
 
 def extract_speech_segments(transcription_result: Dict[str, Any], safety_padding_sec: float = 0.2) -> List[Dict[str, Any]]:
     """
