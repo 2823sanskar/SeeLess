@@ -85,8 +85,9 @@ def _merge_intervals(
 
 def _expand_speech_intervals(
     speech_intervals: Sequence[Dict[str, float]],
+    video_duration: Optional[float] = None,
 ) -> List[Dict[str, float]]:
-    """Apply the configured safety padding to each speech interval."""
+    """Apply the configured safety padding to each speech interval, clamped to video bounds."""
     padding = _padding_seconds()
     expanded: List[Dict[str, float]] = []
     for segment in speech_intervals:
@@ -95,8 +96,13 @@ def _expand_speech_intervals(
             end = float(segment["end"])
         except (KeyError, TypeError, ValueError) as exc:
             raise SchedulingError(f"Invalid speech interval: {segment!r}") from exc
+        clamped_end = (
+            min(end + padding, video_duration)
+            if video_duration is not None
+            else end + padding
+        )
         expanded.append(
-            {"start": max(0.0, start - padding), "end": end + padding}
+            {"start": max(0.0, start - padding), "end": clamped_end}
         )
     return expanded
 
