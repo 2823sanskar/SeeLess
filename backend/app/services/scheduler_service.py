@@ -300,7 +300,7 @@ def schedule_narration_clips(
 
     gap = _min_gap_seconds() if min_gap is None else max(0.0, min_gap)
     delay = _max_delay_seconds() if max_delay is None else max(0.0, max_delay)
-    expanded_speech = _expand_speech_intervals(protected_speech_intervals)
+    expanded_speech = _expand_speech_intervals(protected_speech_intervals, video_duration)
 
     if settings.SCHEDULER_PRIORITY_SORTING:
         ordered = sorted(
@@ -487,7 +487,7 @@ def reschedule_with_actual_durations(
 
     gap = _min_gap_seconds() if min_gap is None else max(0.0, min_gap)
     delay = _max_delay_seconds() if max_delay is None else max(0.0, max_delay)
-    expanded_speech = _expand_speech_intervals(protected_speech_intervals)
+    expanded_speech = _expand_speech_intervals(protected_speech_intervals, video_duration)
 
     ordered = sorted(
         clips,
@@ -602,7 +602,7 @@ def validate_clip_placement(
         return False, scheduled_start, scheduled_end
 
     gap = _min_gap_seconds() if min_gap is None else max(0.0, min_gap)
-    expanded = _expand_speech_intervals(speech_intervals)
+    expanded = _expand_speech_intervals(speech_intervals, video_duration)
     for segment in expanded:
         if _too_close(
             scheduled_start,
