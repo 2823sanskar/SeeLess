@@ -179,7 +179,7 @@ def find_available_gap(
         else min(video_duration, float(requested_start) + delay)
     )
 
-    while current + required_duration <= video_duration + _EPSILON:
+    while current + required_duration <= video_duration + 1e-9:
         if current > search_limit + _EPSILON:
             break
 
@@ -191,7 +191,8 @@ def find_available_gap(
                 break
 
         if conflict is None:
-            return True, round(current, 2), round(candidate_end, 2)
+            final_end = min(candidate_end, video_duration)
+            return True, round(current, 2), round(final_end, 2)
 
         # Jump past the conflicting interval with the minimum separation.
         occ_start, occ_end = conflict
