@@ -37,19 +37,13 @@ from app.schemas import (
     VideoResultResponse,
     VideoUploadResponse,
 )
-from app.services.extraction_service import validate_video
-from app.services.video_service import (
-    create_bulk_export_zip,
-    create_pending_job,
-    create_queued_job,
-    delete_video_and_storage,
-    generate_srt_content,
-    generate_vtt_content,
-    get_artifact_path,
-    get_latest_job,
-    get_video_or_404,
-    list_videos,
-    mark_job_queued,
+from app.services.analytics_service import (
+    generate_compliance_report_json,
+    generate_compliance_scorecard,
+)
+from app.services.analytics_service import (
+    generate_compliance_report_json,
+    generate_compliance_scorecard,
 )
 from app.utils.file_utils import init_video_storage, sanitize_filename
 from app.utils.logging_utils import logger
@@ -428,6 +422,51 @@ async def bulk_export_assets(
         media_type="application/zip",
         filename="seeless_bulk_export.zip",
     )
+
+
+@router.get("/{video_id}/compliance", response_model=Dict[str, Any])
+async def get_video_compliance(
+    video_id: str,
+    db: Session = Depends(get_db),
+) -> Dict[str, Any]:
+    """Return accessibility scorecard and metrics for a video."""
+    scorecard = generate_compliance_scorecard(db, video_id)
+    if not scorecard:
+        raise HTTPException(status_code=404, detail=f"Video '{video_id}' not found.")
+    return scorecard
+
+
+@router.get("/{video_id}/export/compliance")
+async def export_video_compliance(
+    video_id: str,
+    db: Session = Depends(get_db),
+    format: str = "json",
+) -> FileResponse:
+    """Download compliance report as JSON or PDF summary."""
+    scorecard = generate_compliance_scorecard(db, video_id)
+    if not scorecard:
+        raise HTTPException(status_code=404, detail=f"Video '{video_id}' not found.")
+
+    if format == "json":
+        content = generate_compliance_report_json(scorecard)
+        headers = {"Content-Disposition": f'attachment; filename="compliance_{video_id}.json"'}
+        return FileResponse(
+            path=content.encode("utf-8"),
+            media_type="application/json",
+            headers=headers,
+        )
+    elif format == "pdf":
+        pdf_context = generate_compliance_report_pdf_context(scorecard)
+        # PDF generation would be handled by frontend/build step
+        # For now, return JSON with PDF flag
+        headers = {"Content-Disposition": f'attachment; filename="compliance_{video_id}.json"'}
+        return FileResponse(
+            path=generate_compliance_report_json(scorecard).encode("utf-8"),
+            media_type="application/json",
+            headers=headers,
+        )
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported format: {format}")
 
 
 @router.delete("/{video_id}", status_code=204)
