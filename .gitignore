@@ -72,4 +72,5 @@ backend/elephant-goldfish-model/
 
 # Generated media outputs & build cache
 brag-output-*/
+*.tsbuildinfo
 
