@@ -232,7 +232,7 @@ class DialogueProtectionService:
             min_gap=self.min_gap_seconds,
             max_delay=max_delay,
         )
-        if not self.verify_zero_overlap(result["scheduled"], speech_intervals):
+        if not self.verify_zero_overlap(result["scheduled"], speech_intervals, video_duration):
             raise DialogueProtectionError(
                 "Post-TTS reschedule still produced a dialogue overlap"
             )
@@ -242,9 +242,10 @@ class DialogueProtectionService:
         self,
         clips: Sequence[Dict[str, Any]],
         speech_intervals: Sequence[Dict[str, float]],
+        video_duration: Optional[float] = None,
     ) -> bool:
         """Final verification that no narration overlaps protected speech."""
-        safe = verify_schedule_no_overlap(clips, speech_intervals)
+        safe = verify_schedule_no_overlap(clips, speech_intervals, video_duration)
         if safe:
             logger.info("Zero overlap verified: all clips are dialogue-safe.")
         return safe
