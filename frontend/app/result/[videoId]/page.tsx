@@ -10,7 +10,7 @@ import {
   getStreamTranscriptUrl
 } from '@/lib/api';
 import { VideoResultResponse } from '@/lib/types';
-import VideoPlayer from '@/components/VideoPlayer';
+import AccessibleVideoPlayer from '@/components/AccessibleVideoPlayer';
 import DownloadButton from '@/components/DownloadButton';
 
 export default function ResultPage() {
@@ -95,7 +95,12 @@ export default function ResultPage() {
       </div>
 
       {/* Video Player */}
-      <VideoPlayer src={videoStreamUrl} />
+      <AccessibleVideoPlayer
+        videoStreamUrl={videoStreamUrl}
+        masterStreamUrl={audioStreamUrl}
+        descriptions={result.descriptions}
+        speechSegments={result.speech_segments}
+      />
 
       {/* Audio description player & download options */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
