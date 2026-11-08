@@ -619,9 +619,10 @@ def validate_clip_placement(
 def verify_schedule_no_overlap(
     clips: Sequence[Dict[str, Any]],
     protected_speech_intervals: Sequence[Dict[str, float]],
+    video_duration: Optional[float] = None,
 ) -> bool:
     """Final guard: confirm narration never overlaps protected speech."""
-    expanded = _expand_speech_intervals(protected_speech_intervals)
+    expanded = _expand_speech_intervals(protected_speech_intervals, video_duration)
     for clip in clips:
         start = float(clip.get("scheduled_start", 0.0))
         end = float(clip.get("scheduled_end", 0.0))
