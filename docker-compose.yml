@@ -30,8 +30,14 @@ services:
       redis:
         condition: service_healthy
     volumes:
-      - ../storage:/app/storage
+      - ./storage:/app/storage
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   worker:
     build:
@@ -45,9 +51,16 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      api:
+        condition: service_healthy
     volumes:
-      - ../storage:/app/storage
+      - ./storage:/app/storage
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app inspect ping || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   frontend:
     build:
@@ -56,12 +69,18 @@ services:
     container_name: seeless-frontend
     ports:
       - "3000:3000"
+      - "80:80"
     env_file:
       - ./frontend/.env.local
     depends_on:
       api:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   redis_data:
