@@ -13,7 +13,9 @@ SeeLess is an AI-powered accessibility platform designed for visually impaired v
 4. **Dialogue-Safe Scheduler**: Deterministic scheduler ensuring **zero narration overlap** with original dialogue.
 5. **Gnani AI TTS**: Synthesizes spoken audio description clips using Gnani AI's Timbre models (`timbre-v2.5`).
 6. **Audio & Media Assembly**: Combines original soundtrack with generated narration clips using FFmpeg and muxes into an accessible MP4.
-7. **Player & Downloads**: Web interface with HTML5 playback, accessible video download, standalone audio-description WAV, and timestamped transcript JSON.
+7. **Accessible Multi-Track Player**: Custom video playback component with instant audio toggle between original audio and described master stem.
+8. **Professional Audio Experience**: EBU R128 loudness normalization (-24 LUFS) and smart soundtrack ducking during narration segments.
+9. **Player & Downloads**: Web interface with accessible HTML5 playback, video download, standalone audio-description WAV, and timestamped transcript JSON.
 
 ---
 
