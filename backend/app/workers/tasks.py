@@ -311,6 +311,16 @@ def execute_video_pipeline(video_id: str) -> None:
         db.close()
 
 
+def execute_batch_pipeline(video_ids: List[str]) -> None:
+    """Execute pipeline for multiple videos in batch queue."""
+    logger.info(f"Starting batch execution for {len(video_ids)} videos.")
+    for vid in video_ids:
+        try:
+            execute_video_pipeline(vid)
+        except Exception as exc:
+            logger.error(f"Error executing batch video '{vid}': {exc}")
+
+
 # ---------------------------------------------------------------------------
 # Celery entry point
 # ---------------------------------------------------------------------------
@@ -320,8 +330,18 @@ if USING_CELERY:
     def process_video_task(video_id: str) -> None:
         logger.info(f"Celery task received for video '{video_id}'.")
         execute_video_pipeline(video_id)
+
+    @celery_app.task(name="app.workers.tasks.process_batch_task")
+    def process_batch_task(video_ids: List[str]) -> None:
+        logger.info(f"Celery batch task received for {len(video_ids)} videos.")
+        execute_batch_pipeline(video_ids)
 else:
     def process_video_task(video_id: str) -> None:
         """Fallback when Celery is unavailable; runs pipeline directly."""
         logger.info(f"Processing video '{video_id}' without Celery.")
         execute_video_pipeline(video_id)
+
+    def process_batch_task(video_ids: List[str]) -> None:
+        """Fallback when Celery is unavailable; runs batch pipeline directly."""
+        logger.info(f"Processing batch of {len(video_ids)} videos without Celery.")
+        execute_batch_pipeline(video_ids)
