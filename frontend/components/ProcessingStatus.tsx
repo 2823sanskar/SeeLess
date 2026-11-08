@@ -1,10 +1,14 @@
 'use client';
 
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import { getProcessingStatus } from '@/lib/api';
 
 interface ProcessingStatusProps {
-  status: string;
-  currentStep: string;
-  progress: number;
+  videoId?: string;
+  status?: string;
+  currentStep?: string;
+  progress?: number;
   error?: string | null;
 }
 
@@ -23,11 +27,50 @@ const STAGES = [
 ];
 
 export default function ProcessingStatus({
-  status,
-  currentStep,
-  progress,
-  error
+  videoId,
+  status: propStatus,
+  currentStep: propCurrentStep,
+  progress: propProgress,
+  error: propError,
 }: ProcessingStatusProps) {
+  const [internalStatus, setStatus] = React.useState<string>(propStatus || 'PENDING');
+  const [internalCurrentStep, setCurrentStep] = React.useState<string>(propCurrentStep || '');
+  const [internalProgress, setProgress] = React.useState<number>(propProgress || 0);
+  const [internalError, setError] = React.useState<string | null>(propError || null);
+  const router = useRouter();
+
+  const status = propStatus !== undefined ? propStatus : internalStatus;
+  const currentStep = propCurrentStep !== undefined ? propCurrentStep : internalCurrentStep;
+  const progress = propProgress !== undefined ? propProgress : internalProgress;
+  const error = propError !== undefined ? propError : internalError;
+
+  React.useEffect(() => {
+    if (!videoId) return;
+    let cancelled = false;
+    const fetchStatus = async () => {
+      try {
+        const data = await getProcessingStatus(videoId);
+        if (cancelled) return;
+        setStatus(data.status);
+        setCurrentStep(data.current_step);
+        setProgress(data.progress);
+        setError(data.error || null);
+        if (data.status === 'COMPLETED') {
+          router.push(`/result/${videoId}`);
+        }
+      } catch (e:any) {
+        if (cancelled) return;
+        setError(e.message || 'Failed to fetch status');
+      }
+    };
+    // Initial fetch
+    fetchStatus();
+    const interval = setInterval(fetchStatus, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [videoId, router]);
   const isFailed = status === 'FAILED';
   const isCompleted = status === 'COMPLETED';
 
