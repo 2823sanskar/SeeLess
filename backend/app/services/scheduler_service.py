@@ -161,13 +161,15 @@ def find_available_gap(
     ``_expand_speech_intervals``); ``scheduled_clips`` are existing
     placements to avoid. Returns ``(found, start, end)``.
     """
-    if required_duration <= 0.0:
-        required_duration = 1.0
     if video_duration <= 0.0:
         return False, 0.0, 0.0
 
     delay = _max_delay_seconds() if max_delay is None else max(0.0, max_delay)
     gap = _min_gap_seconds() if min_gap is None else max(0.0, min_gap)
+
+    # Guard against infinite loop when slot_duration <= min_gap
+    if required_duration <= gap + 1e-9:
+        return False, 0.0, 0.0
 
     occupied = _occupancy(speech_intervals, scheduled_clips)
     current = max(0.0, float(requested_start))
