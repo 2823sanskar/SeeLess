@@ -12,6 +12,39 @@ import {
 import { VideoResultResponse } from '@/lib/types';
 import AccessibleVideoPlayer from '@/components/AccessibleVideoPlayer';
 import DownloadButton from '@/components/DownloadButton';
+import ComplianceReport, { ComplianceLevel } from '@/components/ComplianceReport';
+
+interface DescriptionCoverageMetrics {
+  totalSegments: number;
+  describedSegments: number;
+  coverage: number;
+}
+
+interface SpeechOverlapMetrics {
+  totalSpeechDuration: number;
+  overlappingDuration: number;
+  overlapPercentage: number;
+}
+
+interface PauseUtilizationMetrics {
+  totalPauseTime: number;
+  totalDuration: number;
+  pauseUtilization: number;
+}
+
+interface NarrationDensityMetrics {
+  totalNarrationWords: number;
+  totalAudioDuration: number;
+  wordsPerMinute: number;
+}
+
+interface ComplianceMetrics {
+  descriptionCoverage: DescriptionCoverageMetrics;
+  speechOverlap: SpeechOverlapMetrics;
+  pauseUtilization: PauseUtilizationMetrics;
+  narrationDensity: NarrationDensityMetrics;
+  wcagLevel: ComplianceLevel;
+}
 
 export default function ResultPage() {
   const params = useParams();
@@ -21,6 +54,7 @@ export default function ResultPage() {
   const [result, setResult] = useState<VideoResultResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [complianceScore, setComplianceScore] = useState<number>(0);
 
   useEffect(() => {
     if (!videoId) return;
@@ -39,6 +73,31 @@ export default function ResultPage() {
 
     fetchResult();
   }, [videoId]);
+
+  useEffect(() => {
+    if (!result) return;
+
+    // Calculate accessibility score based on result data
+    let score = 0;
+
+    // Calculate description coverage
+    const totalSegments = result.descriptions.length;
+    const describedSegments = result.descriptions.filter(d => d.status === 'COMPLETED').length;
+    const descriptionCoverage = totalSegments > 0 ? (describedSegments / totalSegments) * 100 : 0;
+
+    // Scoring based on result data
+    score += Math.min(40, descriptionCoverage);
+
+    // Score for speech segments presence
+    if (result.speech_segments.length > 0) score += 20;
+
+    // Score for available streams
+    const availableStreams = [result.final_video_url, result.audio_description_url, result.transcript_url].filter(Boolean).length;
+    score += (availableStreams * 10);
+
+    const normalizedScore = Math.min(100, Math.max(0, score));
+    setComplianceScore(normalizedScore);
+  }, [result]);
 
   if (loading) {
     return (
@@ -68,6 +127,50 @@ export default function ResultPage() {
   const audioStreamUrl = getStreamAudioUrl(videoId);
   const transcriptUrl = getStreamTranscriptUrl(videoId);
   const fullDownloadUrl = getDownloadUrl(videoId);
+
+  // Calculate compliance metrics
+  const calculateComplianceMetrics = (): ComplianceMetrics => {
+    const descriptionCoverage: DescriptionCoverageMetrics = {
+      totalSegments: result.descriptions.length,
+      describedSegments: result.descriptions.filter(d => d.status === 'COMPLETED').length,
+      coverage: result.descriptions.length > 0 ? (result.descriptions.filter(d => d.status === 'COMPLETED').length / result.descriptions.length) * 100 : 0
+    };
+
+    const speechOverlap: SpeechOverlapMetrics = {
+      totalSpeechDuration: result.speech_segments.reduce((sum, segment) => sum + (segment.end - segment.start), 0),
+      overlappingDuration: 0,
+      overlapPercentage: 0
+    };
+
+    const pauseUtilization: PauseUtilizationMetrics = {
+      totalPauseTime: 0,
+      totalDuration: 0,
+      pauseUtilization: 0
+    };
+
+    const narrationDensity: NarrationDensityMetrics = {
+      totalNarrationWords: result.descriptions.reduce((sum, desc) => sum + desc.text.split(' ').length, 0),
+      totalAudioDuration: 0,
+      wordsPerMinute: 0
+    };
+
+    // Determine WCAG level based on compliance score
+    let wcagLevel: 'AAA' | 'AA' | 'A' | 'Non-compliant';
+    if (complianceScore >= 90) wcagLevel = 'AAA';
+    else if (complianceScore >= 70) wcagLevel = 'AA';
+    else if (complianceScore >= 40) wcagLevel = 'A';
+    else wcagLevel = 'Non-compliant';
+
+    return {
+      descriptionCoverage,
+      speechOverlap,
+      pauseUtilization,
+      narrationDensity,
+      wcagLevel
+    };
+  };
+
+  const complianceMetrics = calculateComplianceMetrics();
 
   return (
     <div className="py-6 space-y-8 max-w-5xl mx-auto">
@@ -199,7 +302,16 @@ export default function ResultPage() {
           </div>
         </div>
       </div>
+
+      {/* Compliance Report */}
+      <ComplianceReport
+        accessibilityScore={complianceScore}
+        wcagLevel={complianceMetrics.wcagLevel}
+        descriptionCoverage={complianceMetrics.descriptionCoverage}
+        speechOverlap={complianceMetrics.speechOverlap}
+        pauseUtilization={complianceMetrics.pauseUtilization}
+        narrationDensity={complianceMetrics.narrationDensity}
+      />
     </div>
   );
 }
-
