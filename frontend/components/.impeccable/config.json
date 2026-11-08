@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "ai-color-palette",
+        "value": "*",
+        "files": [
+          "ProcessingStatus.tsx"
+        ],
+        "createdAt": "2026-11-08T08:46:09.915Z",
+        "reason": "User requested existing design system for status component."
+      }
+    ]
+  }
+}
