@@ -24,7 +24,7 @@ export default function HomePage() {
             <span>🛡️</span> Original Dialogue Preserved
           </h3>
           <p className="text-slate-400 text-xs leading-relaxed">
-            Actors’ speech, ambient audio, and music are never replaced or summarized. Narration only occupies safe natural intervals.
+            Actors' speech, ambient audio, and music are never replaced or summarized. Narration only occupies safe natural intervals.
           </p>
         </div>
 
@@ -45,6 +45,13 @@ export default function HomePage() {
             Accurate, concise narration detailing character actions, gestures, and visual shifts that audio alone cannot convey.
           </p>
         </div>
+      </div>
+
+      <div className="text-center pt-4">
+        <a href="/dashboard" className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition">
+          <span>📁</span>
+          <span>Go to Dashboard</span>
+        </a>
       </div>
     </div>
   );
