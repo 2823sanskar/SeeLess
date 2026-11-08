@@ -12,6 +12,8 @@ class Video(Base):
     __tablename__ = "videos"
 
     id: Mapped[str] = Column(String, primary_key=True, default=generate_uuid)
+    workspace_id: Mapped[Optional[str]] = Column(String, ForeignKey("workspaces.id"), nullable=True, index=True)
+    batch_id: Mapped[Optional[str]] = Column(String, nullable=True, index=True)
     original_filename: Mapped[str] = Column(String, nullable=False)
     original_file_path: Mapped[str] = Column(String, nullable=False)
     duration: Mapped[Optional[float]] = Column(Float, nullable=True)
@@ -25,6 +27,7 @@ class Video(Base):
     speech_segments = relationship("SpeechSegment", back_populates="video", cascade="all, delete-orphan")
     visual_events = relationship("VisualEvent", back_populates="video", cascade="all, delete-orphan")
     descriptions = relationship("Description", back_populates="video", cascade="all, delete-orphan")
+    workspace = relationship("Workspace", back_populates="videos")
 
     def __repr__(self) -> str:
         return f"<Video id={self.id} filename={self.original_filename} status={self.status}>"
@@ -144,3 +147,22 @@ class NarrationClip(Base):
 
     def __repr__(self) -> str:
         return f"<NarrationClip id={self.id} desc_id={self.description_id} [{self.scheduled_start}s - {self.scheduled_end}s] dur={self.duration}s>"
+
+
+# Phase 6: Batch and Workspace Models
+class Workspace(Base):
+    __tablename__ = "workspaces"
+
+    id: Mapped[str] = Column(String, primary_key=True, default=generate_uuid)
+    name: Mapped[str] = Column(String, nullable=False)
+    created_at: Mapped[datetime] = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at: Mapped[datetime] = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    videos = relationship("Video", back_populates="workspace", cascade="all, delete-orphan")
+
+    def __repr__(self) -> str:
+        return f"<Workspace id={self.id} name={self.name}>"
+
+
+# Update Video model to add workspace relationship
+# (Add workspace_id column to Video class - see below)
