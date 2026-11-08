@@ -21,7 +21,7 @@ export default function RootLayout({
               <span>See<span className="text-indigo-400">Less</span></span>
             </a>
             <div className="text-xs text-slate-400 border border-slate-800 px-2.5 py-1 rounded-full bg-slate-900">
-              Iteration 1 MVP • Powered by Gnani AI
+              Phase 6: Multi-Tenant Workspace • Powered by Gnani AI
             </div>
           </div>
         </header>
