@@ -26,3 +26,18 @@ def get_db() -> Generator[Session, None, None]:
 def init_db() -> None:
     from app import models  # noqa: F401
     Base.metadata.create_all(bind=engine)
+    try:
+        from sqlalchemy import inspect, text
+        inspector = inspect(engine)
+        if "videos" in inspector.get_table_names():
+            columns = [c["name"] for c in inspector.get_columns("videos")]
+            if "batch_id" not in columns:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE videos ADD COLUMN batch_id VARCHAR"))
+                    conn.commit()
+            if "workspace_id" not in columns:
+                with engine.connect() as conn:
+                    conn.execute(text("ALTER TABLE videos ADD COLUMN workspace_id VARCHAR"))
+                    conn.commit()
+    except Exception:
+        pass
