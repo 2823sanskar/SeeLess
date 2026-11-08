@@ -46,8 +46,8 @@ export default function HomePage() {
                 <rect width="800" height="500" fill="url(#grad1)" />
                 <defs>
                   <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stop-color="indigo-600" />
-                    <stop offset="100%" stop-color="emerald-600" />
+                    <stop offset="0%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#10b981" />
                   </linearGradient>
                 </defs>
               </svg>
