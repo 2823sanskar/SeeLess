@@ -142,3 +142,60 @@ python scripts/test_pipeline.py
 ```
 This generates a synthetic MP4, executes the complete 10-stage pipeline, verifies all artifacts, and validates quality.
 
+---
+
+## 🐳 Production Deployment (Phase 8)
+
+### Quick Start with Docker Compose
+
+```bash
+docker compose up --build
+```
+
+This starts:
+- **Redis** (port 6379) - Message broker for Celery
+- **FastAPI Backend** (port 8000) - REST API with health checks
+- **Celery Workers** - Background video processing
+- **Next.js Frontend** (port 3000/80) - Accessible video player
+
+### Health Endpoints
+
+- `GET /api/health` - Liveness probe (basic service health)
+- `GET /api/health/ready` - Readiness probe (checks DB, Redis, Celery, Gnani API)
+
+### Docker Build Commands
+
+```bash
+# Build images only
+docker compose build
+
+# Rebuild with --no-cache
+docker compose build --no-cache
+
+# Start services in background
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop services
+docker compose down
+
+# Remove volumes (clears Redis data)
+docker compose down -v
+```
+
+### Environment Variables (Production)
+
+Copy example files and configure:
+
+```bash
+# Backend
+cp backend/.env.example backend/.env
+
+# Frontend  
+cp frontend/.env.example frontend/.env.local
+```
+
+Refer to `backend/.env.example` for all available configuration options including AI API keys.
+

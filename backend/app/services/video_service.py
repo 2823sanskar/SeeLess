@@ -18,6 +18,12 @@ from app.schemas import VideoListResponse, VideoSummarySchema
 from app.utils.logging_utils import logger
 
 
+def validate_video(video_path: str) -> Dict[str, Any]:
+    """Import and call extraction_service.validate_video."""
+    from app.services.extraction_service import validate_video as _validate
+    return _validate(video_path)
+
+
 def get_video_or_404(db: Session, video_id: str) -> Video:
     video = db.query(Video).filter(Video.id == video_id).first()
     if not video:
