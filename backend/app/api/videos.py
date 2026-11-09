@@ -39,11 +39,20 @@ from app.schemas import (
 )
 from app.services.analytics_service import (
     generate_compliance_report_json,
+    generate_compliance_report_pdf_context,
     generate_compliance_scorecard,
 )
-from app.services.analytics_service import (
-    generate_compliance_report_json,
-    generate_compliance_scorecard,
+from app.services.video_service import (
+    create_pending_job,
+    delete_video_and_storage,
+    generate_srt_content,
+    generate_vtt_content,
+    get_artifact_path,
+    get_latest_job,
+    get_video_or_404,
+    list_videos,
+    mark_job_queued,
+    validate_video,
 )
 from app.utils.file_utils import init_video_storage, sanitize_filename
 from app.utils.logging_utils import logger
