@@ -1,11 +1,11 @@
 # SeeLess — AI-Powered Audio Description Platform
-### Iteration 1 MVP
+
 
 SeeLess is an AI-powered accessibility platform designed for visually impaired viewers. It analyzes video and audio content, transcribes original dialogue, detects visual actions and gestures, and schedules spoken audio descriptions in natural gaps without interrupting original actor dialogue, sound effects, or music.
 
 ---
 
-## 🚀 Key Features (Iteration 1)
+## 🚀 Key Features 
 
 1. **MP4 Upload & Extraction**: Validates video dimensions, duration, and extracts high-fidelity audio and sampled video frames.
 2. **Gnani AI STT**: Exclusively transcribes dialogue and provides speech interval boundaries with configurable safety padding.
